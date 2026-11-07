@@ -81,10 +81,17 @@ status="$(absolute "$status")"
 # An empty status file now, so --wait never reads a previous run's exit= line.
 : > "$status" || die "cannot write the status file $status"
 
-# An app started by LaunchServices does not inherit this environment: hand it
-# over variable by variable.
+# Hand the environment over variable by variable, so the script gets it
+# whatever LaunchServices does with open's own environment. (On macOS 26.5,
+# open also passes its own environment to the app, so --clean-env runs open
+# under env -i with a minimal base: HOME, USER, LOGNAME, TMPDIR and the
+# default PATH.)
 env_args=()
-if [ "$clean_env" = 0 ]; then
+launcher=()
+if [ "$clean_env" = 1 ]; then
+    launcher=(/usr/bin/env -i "HOME=$HOME" "USER=${USER:-$(id -un)}" "LOGNAME=${LOGNAME:-$(id -un)}"
+              "TMPDIR=${TMPDIR:-/tmp}" "PATH=/usr/bin:/bin:/usr/sbin:/sbin")
+else
     while IFS= read -r name; do
         case "$name" in
             _|''|*[!A-Za-z0-9_]*) continue ;;
@@ -96,7 +103,7 @@ fi
 echo "log=$log"
 echo "status=$status"
 
-open -n -g -a "$app" ${env_args[@]+"${env_args[@]}"} \
+${launcher[@]+"${launcher[@]}"} /usr/bin/open -n -g -a "$app" ${env_args[@]+"${env_args[@]}"} \
     --args --cwd "$cwd" --log "$log" --status "$status" -- "$script" "$@" \
     || { echo "chaperone: open failed" >&2; exit 125; }
 

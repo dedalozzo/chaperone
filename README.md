@@ -52,7 +52,7 @@ chaperone [--wait] [--clean-env] [--cwd DIR] [--log FILE] [--status FILE] -- /ab
 | Option | Meaning |
 |---|---|
 | `--wait` | Block until the script ends, then exit with its exit code: 128+N if signal N ended it, 126 if Chaperone refused the script, 125 if Chaperone itself failed. |
-| `--clean-env` | Don't pass the caller's environment. By default, every exported variable is handed over with one `open --env K=V` each, because an app started by LaunchServices does not inherit the caller's environment. |
+| `--clean-env` | Don't pass the caller's environment: the script gets LaunchServices' base environment plus `HOME`, `USER`, `LOGNAME`, `TMPDIR` and `PATH=/usr/bin:/bin:/usr/sbin:/sbin`. By default, every exported variable is handed over with one `open --env K=V` each. (On macOS 26.5, `open` also passes its own environment to the app it launches, so `--clean-env` runs `open` under `env -i`.) |
 | `--cwd DIR` | The script's working directory. Default: the caller's `$PWD`. |
 | `--log FILE` | The script's stdout and stderr are appended here. Default: `$TMPDIR/chaperone-<timestamp>.log`. |
 | `--status FILE` | The status file. Default: `$TMPDIR/chaperone-<timestamp>.status`. |
@@ -152,13 +152,21 @@ echo "first launch: $(( e - s )) s"
 chaperone --wait --log /tmp/probe.log -- /abs/allowed/probe.sh; cat /tmp/probe.log
 ```
 
-1. **Attribution.** The probe prints `responsible=… /Users/you/Applications/Chaperone.app/Contents/MacOS/chaperone-app`. Before the app is in Developer Tools, the first launch is scanned (tens of seconds), and the log shows tccd asking about the app:
+1. **Attribution.** The probe prints `responsible=… /Users/you/Applications/Chaperone.app/Contents/MacOS/chaperone-app`. Before the app is in Developer Tools, the first launch is scanned (tens of seconds), and the log shows tccd asking about the app.
 
-   ```sh
-   /usr/bin/log show --last 5m --predicate 'process == "tccd" AND eventMessage CONTAINS "kTCCServiceDeveloperTool"' | grep chaperone-app
+   On macOS 26.5, tccd logs it like this (older releases print `Handling access request to kTCCServiceDeveloperTool … responsible_path=… Auth Right: Unknown`):
+
+   ```
+   tccd … AUTHREQ_CTX: … service=kTCCServiceDeveloperTool, preflight=yes, query=1 …
+   tccd … AUTHREQ_ATTRIBUTION: … accessing={TCCDProcess: identifier=io.github.dedalozzo.chaperone, … binary_path=…/Chaperone.app/Contents/MacOS/chaperone-app}, requesting={… identifier=com.apple.syspolicyd …}
+   tccd … Service kTCCServiceDeveloperTool does not allow prompting; returning denied.
    ```
 
-   `… responsible_path=…/Chaperone.app/Contents/MacOS/chaperone-app … Auth Right: Unknown`
+   To see them, search for the service name rather than the app (the query and the attribution are separate lines):
+
+   ```sh
+   /usr/bin/log show --last 5m --predicate 'process == "tccd"' | grep -E 'kTCCServiceDeveloperTool|dedalozzo.chaperone'
+   ```
 
 2. **Exemption.** After you add the app, a fresh probe's first launch takes a few milliseconds, and for that binary there is no `queueing up scan for code` line from syspolicyd and no tccd DeveloperTool query:
 
