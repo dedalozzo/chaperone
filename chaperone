@@ -24,16 +24,21 @@
 # failed, the app never started, or it quit without a result); 2 for a usage
 # error; 0 without --wait once the run has been handed to the app.
 #
-# Environment: CHAPERONE_APP overrides the app's path (default
-# ~/Applications/Chaperone.app). Only the installed app should be used for
-# real runs, since that is the one listed in Developer Tools.
+# Environment: CHAPERONE_APP overrides the app's path. Only the installed app
+# should be used for real runs, since that is the one listed in Developer
+# Tools.
 #
 # Written for /bin/bash 3.2 (macOS's): no associative arrays, and empty arrays
 # are expanded with ${a[@]+"${a[@]}"} so `set -u` does not trip on them.
 
 set -u
 
-app="${CHAPERONE_APP:-$HOME/Applications/Chaperone.app}"
+# Where the app is installed. `make install` rewrites this line with the real
+# path: ~/Applications/Chaperone.app by default, the opt path under Homebrew,
+# /Applications/MacPorts/Chaperone.app under MacPorts.
+DEFAULT_APP="$HOME/Applications/Chaperone.app"
+
+app="${CHAPERONE_APP:-$DEFAULT_APP}"
 
 usage() {
     cat <<'EOF'
@@ -99,7 +104,7 @@ case "$script" in
     *) die "the script must be an absolute path: $script" ;;
 esac
 
-[ -d "$app" ] || die "no Chaperone.app at $app (run make install)"
+[ -d "$app" ] || die "no Chaperone.app at $app (install Chaperone, or set CHAPERONE_APP)"
 cwd="$(absolute "$cwd")"
 [ -d "$cwd" ] || die "no such directory: $cwd"
 

@@ -26,24 +26,64 @@ Chaperone is that app, made for the job: `open` starts it, it spawns your script
 
 ## Install
 
-Needs macOS 13 or later on Apple silicon and the Xcode command-line tools (`swiftc`, `codesign`).
+Chaperone needs macOS 13 or later on Apple silicon. Pick one of four ways. The first two and the last build it on your Mac from source, which needs the Xcode command-line tools (`xcode-select --install`). Building it yourself is the safer choice for a tool that skips malware scans: the source is one Swift file you can read first.
+
+| Way | Command | The app to add to Developer Tools |
+|---|---|---|
+| Homebrew | `brew install dedalozzo/chaperone/chaperone` | `/opt/homebrew/opt/chaperone/Chaperone.app` |
+| MacPorts | `sudo port install chaperone` | `/Applications/MacPorts/Chaperone.app` |
+| Release zip | see below | `~/Applications/Chaperone.app` |
+| From source | `make install` | `~/Applications/Chaperone.app` |
+
+### Homebrew
+
+```sh
+brew install dedalozzo/chaperone/chaperone
+```
+
+The formula lives in the tap [dedalozzo/homebrew-chaperone](https://github.com/dedalozzo/homebrew-chaperone). It builds the app into the Homebrew prefix and links `chaperone` into Homebrew's `bin`.
+
+### MacPorts
+
+```sh
+sudo port install chaperone
+```
+
+Until the port is in the MacPorts tree, use the Portfile in `packaging/macports/` as a local port repository (see `packaging/macports/README.md`). The app goes to `/Applications/MacPorts/Chaperone.app` and the shim to `/opt/local/bin/chaperone`.
+
+### Release zip
+
+Each [GitHub release](https://github.com/dedalozzo/chaperone/releases) has a ready-built `Chaperone-<version>-arm64.zip`. The app in it is signed only ad hoc, not by an Apple developer certificate, so macOS quarantines the download and refuses to open it. Clear the quarantine flag yourself, and only if you trust the build:
+
+```sh
+cd ~/Downloads
+ditto -x -k Chaperone-1.0.0-arm64.zip .
+xattr -dr com.apple.quarantine Chaperone-1.0.0
+mkdir -p ~/Applications ~/.local/bin
+ditto Chaperone-1.0.0/Chaperone.app ~/Applications/Chaperone.app
+install -m 755 Chaperone-1.0.0/chaperone ~/.local/bin/chaperone
+```
+
+The release page lists the zip's SHA-256. Check it with `shasum -a 256 Chaperone-1.0.0-arm64.zip` before installing.
+
+### From source
 
 ```sh
 make install
 ```
 
-This builds `build/Chaperone.app` (ad-hoc signed) and copies it to `~/Applications/Chaperone.app`, and the shim to `~/.local/bin/chaperone`. No sudo.
+This builds `build/Chaperone.app` (ad-hoc signed) and copies it to `~/Applications/Chaperone.app`, and the shim to `~/.local/bin/chaperone`. No sudo. `PREFIX_APP`, `PREFIX_BIN`, `APP_PATH` and `DESTDIR` change where things go (see the `Makefile`).
 
-Then, by hand, once:
+### Then, by hand, once
 
 1. Open **System Settings > Privacy & Security > Developer Tools**.
-2. Click **+**, pick `~/Applications/Chaperone.app` (press ⇧⌘G in the picker and type the path), and make sure its switch is on.
+2. Click **+**, pick the app from the table above (press ⇧⌘G in the picker and type the path), and make sure its switch is on.
 
 Then create the allowlist (below). Chaperone refuses everything until it exists.
 
 ### Ad-hoc signing: re-add after every rebuild
 
-There is no signing identity in v1: the app is signed ad hoc, so its identity is its code hash, which changes on every rebuild. **After every `make install` that rebuilt the app, remove Chaperone from Developer Tools and add it again.** Otherwise the old entry no longer matches and every launch is scanned again. Signing with a stable identity (a self-signed certificate, or a free Apple Development certificate) would remove this step.
+There is no signing identity in v1: the app is signed ad hoc, so its identity is its code hash, which changes on every rebuild. **After every rebuild, upgrade or reinstall (`make install`, `brew upgrade`, `port upgrade`, a new release), remove Chaperone from Developer Tools and add it again.** Otherwise the old entry no longer matches and every launch is scanned again. Signing with a stable identity (a self-signed certificate, or a free Apple Development certificate) would remove this step.
 
 The bundle identifier is `io.github.dedalozzo.chaperone`. Don't change it.
 
@@ -192,11 +232,14 @@ chaperone --wait --log /tmp/probe.log -- /abs/allowed/probe.sh; cat /tmp/probe.l
 
 ## Uninstall
 
-```sh
-make uninstall
-```
+| Way | Command |
+|---|---|
+| Homebrew | `brew uninstall chaperone`, then `brew untap dedalozzo/chaperone` |
+| MacPorts | `sudo port uninstall chaperone` |
+| Release zip | `rm -rf ~/Applications/Chaperone.app ~/.local/bin/chaperone` |
+| From source | `make uninstall` (removes `~/Applications/Chaperone.app` and `~/.local/bin/chaperone`) |
 
-This removes `~/Applications/Chaperone.app` and `~/.local/bin/chaperone`. Then remove Chaperone from Developer Tools, and delete `~/.config/chaperone` if you no longer need the allowlist.
+Then remove Chaperone from Developer Tools, and delete `~/.config/chaperone` if you no longer need the allowlist.
 
 ## Repository layout
 
@@ -205,8 +248,9 @@ This removes `~/Applications/Chaperone.app` and `~/.local/bin/chaperone`. Then r
 | `src/main.swift` | The app: argument parsing, allowlist checks, spawning the script, the status file. |
 | `chaperone` | The command-line shim: builds the `open` call, hands over the environment, implements `--wait`. |
 | `Info.plist` | Bundle metadata: bundle id `io.github.dedalozzo.chaperone`, `LSBackgroundOnly`, the icon. |
-| `Makefile` | `make`, `make install`, `make uninstall`, `make clean`. |
+| `Makefile` | `make`, `make install`, `make uninstall`, `make dist` (the release zip), `make clean`. |
 | `icon/` | The app icon: `Chaperone.svg` (vector source), `Chaperone-1024.png`, `Chaperone.iconset/`, `Chaperone.icns` (bundled into the app), and `build-icon.sh` with its two Swift helpers to regenerate them (see `icon/README.md`). |
+| `packaging/` | The MacPorts Portfile (`packaging/macports/`) and the release checklist (`packaging/README.md`). The Homebrew formula lives in the tap [dedalozzo/homebrew-chaperone](https://github.com/dedalozzo/homebrew-chaperone). |
 
 ## License
 
