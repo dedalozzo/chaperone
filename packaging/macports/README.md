@@ -10,6 +10,8 @@ cd ~/src/chaperone/packaging/macports
 portindex
 ```
 
+Don't clone into `~/Documents`, `~/Desktop` or `~/Downloads`: MacPorts reads the Portfile as its own `macports` user, which can't enter those private folders, and the install fails with "Permission denied".
+
 Add the folder to `/opt/local/etc/macports/sources.conf`, **above** the `rsync://` line:
 
 ```
