@@ -242,6 +242,7 @@ Then remove Chaperone from Developer Tools, and delete `~/.config/chaperone` if 
 | `Info.plist` | Bundle metadata: bundle id `io.github.dedalozzo.chaperone`, `LSBackgroundOnly`, the icon. |
 | `Makefile` | `make`, `make install`, `make uninstall`, `make dist` (the release zip), `make clean`. |
 | `icon/` | The app icon: `Chaperone.svg` (vector source), `Chaperone-1024.png`, `Chaperone.iconset/`, `Chaperone.icns` (bundled into the app), and `build-icon.sh` with its two Swift helpers to regenerate them (see `icon/README.md`). |
+| `media/` | `linkedin-1200x627.png`, the social image for posts (1.91:1, shown uncropped in the LinkedIn feed), and `build-linkedin.swift`, which renders it (`swift media/build-linkedin.swift` from the repo root). |
 | `packaging/` | The MacPorts Portfile (`packaging/macports/`) and the release checklist (`packaging/README.md`). |
 
 ## License
