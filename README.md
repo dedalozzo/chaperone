@@ -174,11 +174,21 @@ chaperone --wait --log /tmp/probe.log -- /abs/allowed/probe.sh; cat /tmp/probe.l
    /usr/bin/log show --last 5m --predicate 'process == "tccd"' | grep -E 'kTCCServiceDeveloperTool|dedalozzo.chaperone'
    ```
 
-2. **Exemption.** After you add the app, a fresh probe's first launch takes a few milliseconds, and for that binary there is no `queueing up scan for code` line from syspolicyd and no tccd DeveloperTool query:
+2. **Exemption.** After you add the app, a fresh probe's first launch takes about 10 ms (measured here: 0.010–0.013 s), and syspolicyd logs no scan for that binary: no `queueing up scan for code`, no `GK performScan`, and no `evaluateScanResult` naming it.
 
    ```sh
-   /usr/bin/log show --last 5m --predicate 'process == "syspolicyd" OR process == "tccd"' | grep p-<name>
+   /usr/bin/log show --last 5m --predicate 'process == "syspolicyd"' | grep -E 'p-<name>|queueing up scan'
    ```
+
+   On macOS 26.5, syspolicyd still asks tccd once per Chaperone instance, but now the answer is "allowed" (`authValue=2`, `authReason=4` = set in System Settings). Before the app was listed, it was `authValue=0`, `authReason=5`, followed by `returning denied`:
+
+   ```
+   tccd … AUTHREQ_CTX: msgID=484.233, … service=kTCCServiceDeveloperTool, preflight=yes, query=1 …
+   tccd … AUTHREQ_ATTRIBUTION: msgID=484.233, attribution={accessing={TCCDProcess: identifier=io.github.dedalozzo.chaperone, …}, requesting={… com.apple.syspolicyd …}}
+   tccd … AUTHREQ_RESULT: msgID=484.233, authValue=2, authReason=4, …
+   ```
+
+   Match the `AUTHREQ_RESULT` to its query by `msgID`.
 
 ## Uninstall
 
