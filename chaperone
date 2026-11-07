@@ -1,0 +1,138 @@
+#!/bin/bash
+# chaperone: run a script through Chaperone.app, so the app (started by
+# LaunchServices) is the responsible process of the script and of everything
+# it starts. See README.md.
+#
+# usage: chaperone [--wait] [--clean-env] [--cwd DIR] [--log FILE] [--status FILE] -- /abs/script [args...]
+
+set -u
+
+app="${CHAPERONE_APP:-$HOME/Applications/Chaperone.app}"
+
+usage() {
+    cat <<'EOF'
+usage: chaperone [--wait] [--clean-env] [--cwd DIR] [--log FILE] [--status FILE] -- /abs/script [args...]
+
+  --wait        block until the script ends, then exit with its exit code
+                (128+N if a signal N ended it, 126 if Chaperone refused it,
+                125 if Chaperone failed)
+  --clean-env   do not pass this shell's environment to the script
+  --cwd DIR     the script's working directory (default: $PWD)
+  --log FILE    append the script's stdout and stderr here
+                (default: $TMPDIR/chaperone-<timestamp>.log)
+  --status FILE app=, pid=, then exit= or signal= lines
+                (default: $TMPDIR/chaperone-<timestamp>.status)
+
+The script must lie under a prefix listed in ~/.config/chaperone/allow.
+Prints log=<path> and status=<path> on stdout.
+EOF
+}
+
+die() { echo "chaperone: $*" >&2; exit 2; }
+
+absolute() {
+    case "$1" in
+        /*) printf '%s\n' "$1" ;;
+        *) printf '%s/%s\n' "$PWD" "$1" ;;
+    esac
+}
+
+wait_for_end=0
+clean_env=0
+cwd="$PWD"
+log=""
+status=""
+
+while [ $# -gt 0 ]; do
+    case "$1" in
+        --wait) wait_for_end=1 ;;
+        --clean-env) clean_env=1 ;;
+        --cwd) [ $# -ge 2 ] || die "--cwd needs a directory"; cwd="$2"; shift ;;
+        --log) [ $# -ge 2 ] || die "--log needs a file"; log="$2"; shift ;;
+        --status) [ $# -ge 2 ] || die "--status needs a file"; status="$2"; shift ;;
+        -h|--help) usage; exit 0 ;;
+        --) shift; break ;;
+        /*) break ;;
+        *) usage >&2; die "unknown option or relative script: $1" ;;
+    esac
+    shift
+done
+
+[ $# -ge 1 ] || { usage >&2; die "no script given"; }
+script="$1"
+shift
+case "$script" in
+    /*) ;;
+    *) die "the script must be an absolute path: $script" ;;
+esac
+
+[ -d "$app" ] || die "no Chaperone.app at $app (run make install)"
+cwd="$(absolute "$cwd")"
+[ -d "$cwd" ] || die "no such directory: $cwd"
+
+tmp="${TMPDIR:-/tmp}"
+tmp="${tmp%/}"
+stamp="$(date +%Y%m%d-%H%M%S)-$$"
+[ -n "$log" ] || log="$tmp/chaperone-$stamp.log"
+[ -n "$status" ] || status="$tmp/chaperone-$stamp.status"
+log="$(absolute "$log")"
+status="$(absolute "$status")"
+
+# An empty status file now, so --wait never reads a previous run's exit= line.
+: > "$status" || die "cannot write the status file $status"
+
+# An app started by LaunchServices does not inherit this environment: hand it
+# over variable by variable.
+env_args=()
+if [ "$clean_env" = 0 ]; then
+    while IFS= read -r name; do
+        case "$name" in
+            _|''|*[!A-Za-z0-9_]*) continue ;;
+        esac
+        env_args+=(--env "$name=${!name}")
+    done < <(compgen -e)
+fi
+
+echo "log=$log"
+echo "status=$status"
+
+open -n -g -a "$app" ${env_args[@]+"${env_args[@]}"} \
+    --args --cwd "$cwd" --log "$log" --status "$status" -- "$script" "$@" \
+    || { echo "chaperone: open failed" >&2; exit 125; }
+
+[ "$wait_for_end" = 1 ] || exit 0
+
+# Exits with the run's result if the status file has one.
+finish_if_done() {
+    local line
+    line="$(grep -E '^(exit|signal)=[0-9]+$' "$status" 2>/dev/null | tail -n 1)"
+    case "$line" in
+        exit=*)
+            grep '^refused=' "$status" | sed 's/^refused=/chaperone: refused: /' >&2
+            exit "${line#exit=}"
+            ;;
+        signal=*)
+            exit $((128 + ${line#signal=}))
+            ;;
+    esac
+}
+
+# The app's first launch after a rebuild can itself be scanned (about 40 s).
+start_limit=300
+started="$(date +%s)"
+app_pid=""
+while :; do
+    finish_if_done
+    if [ -z "$app_pid" ]; then
+        app_pid="$(sed -n 's/^app=\([0-9][0-9]*\)$/\1/p' "$status" | head -n 1)"
+        if [ -z "$app_pid" ] && [ $(( $(date +%s) - started )) -gt "$start_limit" ]; then
+            echo "chaperone: Chaperone did not start within $start_limit s" >&2
+            exit 125
+        fi
+    elif ! kill -0 "$app_pid" 2>/dev/null; then
+        finish_if_done
+        echo "chaperone: Chaperone (pid $app_pid) quit without writing an exit status" >&2
+        exit 125
+    fi
+    sleep 0.5
+done
