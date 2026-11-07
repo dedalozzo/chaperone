@@ -1,0 +1,84 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024">
+  <defs>
+    <linearGradient id="background" x1="136" y1="72" x2="890" y2="970" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#233B66"/>
+      <stop offset="0.48" stop-color="#172849"/>
+      <stop offset="1" stop-color="#11192F"/>
+    </linearGradient>
+    <radialGradient id="bloom" cx="0" cy="0" r="1" gradientTransform="matrix(524 428 -377 462 302 242)" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#5579C1" stop-opacity=".42"/>
+      <stop offset="1" stop-color="#5579C1" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="shield" x1="266" y1="226" x2="773" y2="836" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#83E8FF"/>
+      <stop offset=".48" stop-color="#58B8F4"/>
+      <stop offset="1" stop-color="#4770D9"/>
+    </linearGradient>
+    <linearGradient id="shieldFace" x1="365" y1="264" x2="661" y2="790" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#203961"/>
+      <stop offset=".55" stop-color="#172A4B"/>
+      <stop offset="1" stop-color="#1B2545"/>
+    </linearGradient>
+    <linearGradient id="route" x1="391" y1="465" x2="614" y2="734" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#FFD88A"/>
+      <stop offset=".42" stop-color="#83F0E5"/>
+      <stop offset="1" stop-color="#70C9FF"/>
+    </linearGradient>
+    <linearGradient id="tile" x1="450" y1="662" x2="590" y2="815" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#F4FDFF"/>
+      <stop offset="1" stop-color="#B6E8FF"/>
+    </linearGradient>
+    <linearGradient id="tileSide" x1="512" y1="685" x2="590" y2="798" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#A6D8FF"/>
+      <stop offset="1" stop-color="#79A9E8"/>
+    </linearGradient>
+    <linearGradient id="star" x1="462" y1="252" x2="565" y2="374" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#FFF7D8"/>
+      <stop offset=".55" stop-color="#FFD77F"/>
+      <stop offset="1" stop-color="#FFAD62"/>
+    </linearGradient>
+    <clipPath id="appShape">
+      <path d="M220 8h584c119 0 212 93 212 212v584c0 119-93 212-212 212H220C101 1016 8 923 8 804V220C8 101 101 8 220 8Z"/>
+    </clipPath>
+  </defs>
+
+  <g clip-path="url(#appShape)">
+    <path fill="url(#background)" d="M0 0h1024v1024H0z"/>
+    <path fill="url(#bloom)" d="M0 0h1024v1024H0z"/>
+    <path d="M-40 789c178-90 324-112 469-80 190 42 311 17 635-147v462H-40V789Z" fill="#365495" opacity=".10"/>
+    <path d="M-30 863c214-119 383-129 552-69 158 57 282 46 533-62v320H-30V863Z" fill="#6CCBFF" opacity=".055"/>
+
+    <!-- A soft, protected field frames the guiding route. -->
+    <path d="M512 157c86 42 166 71 253 94l-19 277c-8 122-95 220-234 294-139-74-226-172-234-294l-19-277c87-23 167-52 253-94Z" fill="url(#shield)"/>
+    <path d="M512 180c79 38 152 65 229 86l-17 254c-7 110-84 198-212 267-128-69-205-157-212-267l-17-254c77-21 150-48 229-86Z" fill="url(#shieldFace)" stroke="#C0F4FF" stroke-opacity=".72" stroke-width="3"/>
+    <path d="M512 205c71 34 137 59 206 78l-16 230c-6 99-75 178-190 242-115-64-184-143-190-242l-16-230c69-19 135-44 206-78Z" fill="none" stroke="#86DFFF" stroke-opacity=".13" stroke-width="2"/>
+
+    <!-- Faint guide arcs suggest a trusted escort without adding visual clutter. -->
+    <path d="M351 437c13-80 65-141 131-165M673 437c-13-80-65-141-131-165" fill="none" stroke="#B8EFFF" stroke-opacity=".18" stroke-width="4" stroke-linecap="round"/>
+    <circle cx="328" cy="470" r="5" fill="#90E6FF" opacity=".55"/>
+    <circle cx="696" cy="470" r="5" fill="#90E6FF" opacity=".55"/>
+
+    <!-- North-star beacon: the chaperone is a guide as well as a shield. -->
+    <path d="M512 249c15 48 29 62 78 77-49 15-63 29-78 78-15-49-29-63-78-78 49-15 63-29 78-77Z" fill="url(#star)"/>
+    <circle cx="512" cy="326" r="9" fill="#FFF9E8"/>
+    <path d="M512 234v-20M512 438v-20M420 326h-20M624 326h-20" stroke="#FFE7AB" stroke-width="5" stroke-linecap="round" opacity=".72"/>
+
+    <!-- One continuous luminous path escorts a small built artifact. -->
+    <path d="M512 413c-2 55-28 75-81 110-42 28-52 65-33 98 17 31 53 42 92 42h44c41 0 69 25 69 57" fill="none" stroke="url(#route)" stroke-width="17" stroke-linecap="round"/>
+    <circle cx="431" cy="524" r="10" fill="#D7FFF7" stroke="#55C4D5" stroke-width="4"/>
+    <circle cx="395" cy="621" r="9" fill="#D7FFF7" stroke="#55C4D5" stroke-width="4"/>
+
+    <!-- A small, abstract application bundle at the end of the guided path. -->
+    <g>
+      <path d="M455 676h111c12 0 22 10 22 22v94c0 12-10 22-22 22H455c-12 0-22-10-22-22v-94c0-12 10-22 22-22Z" fill="url(#tile)"/>
+      <path d="M512 676h54c12 0 22 10 22 22v94c0 12-10 22-22 22h-54V676Z" fill="url(#tileSide)" opacity=".78"/>
+      <path d="M455 698c0-12 10-22 22-22h70v29c0 7-6 13-13 13h-79v-20Z" fill="#FFF" opacity=".78"/>
+      <path d="m482 737 15 13-15 13M510 763h28" fill="none" stroke="#315785" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"/>
+      <circle cx="550" cy="693" r="4" fill="#4D83B8" opacity=".7"/>
+    </g>
+
+  </g>
+
+  <!-- Fine edge light gives the rounded-square icon a finished macOS feel. -->
+  <path d="M220 8h584c119 0 212 93 212 212v584c0 119-93 212-212 212H220C101 1016 8 923 8 804V220C8 101 101 8 220 8Z" fill="none" stroke="#BDD9FF" stroke-opacity=".20" stroke-width="3"/>
+</svg>

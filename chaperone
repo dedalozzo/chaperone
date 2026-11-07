@@ -1,9 +1,35 @@
 #!/bin/bash
-# chaperone: run a script through Chaperone.app, so the app (started by
-# LaunchServices) is the responsible process of the script and of everything
-# it starts. See README.md.
+# chaperone: run a script through Chaperone.app.
+#
+# Programs started from a shell inherit the shell's *responsible process*, and
+# under agent tools or terminal multiplexers that is often something macOS
+# will not exempt from the XProtect first-launch scan. This shim asks
+# LaunchServices (`open`) to start a fresh Chaperone.app instance, which runs
+# the script as its child. The app then becomes the responsible process of the
+# script and of everything the script starts, so listing Chaperone.app under
+# Developer Tools exempts all of them. See README.md for the full story.
 #
 # usage: chaperone [--wait] [--clean-env] [--cwd DIR] [--log FILE] [--status FILE] -- /abs/script [args...]
+#
+# What it does, in order:
+#   1. parses the options and checks the script path is absolute;
+#   2. picks default log and status paths in $TMPDIR, and empties the status file;
+#   3. builds `open -n -g -a Chaperone.app --env K=V ... --args <app options> -- script args`
+#      and runs it (the app does the allowlist check, not the shim);
+#   4. prints log=<path> and status=<path>, and returns at once, or with
+#      --wait, polls the status file until the run ends and exits with its code.
+#
+# Exit codes: the script's own code with --wait; 128+N when signal N ended it;
+# 126 when Chaperone refused the script; 125 when Chaperone failed (open
+# failed, the app never started, or it quit without a result); 2 for a usage
+# error; 0 without --wait once the run has been handed to the app.
+#
+# Environment: CHAPERONE_APP overrides the app's path (default
+# ~/Applications/Chaperone.app). Only the installed app should be used for
+# real runs, since that is the one listed in Developer Tools.
+#
+# Written for /bin/bash 3.2 (macOS's): no associative arrays, and empty arrays
+# are expanded with ${a[@]+"${a[@]}"} so `set -u` does not trip on them.
 
 set -u
 
@@ -25,17 +51,23 @@ usage: chaperone [--wait] [--clean-env] [--cwd DIR] [--log FILE] [--status FILE]
 
 The script must lie under a prefix listed in ~/.config/chaperone/allow.
 Prints log=<path> and status=<path> on stdout.
+To stop a run: kill the app= pid from the status file.
 EOF
 }
 
+# Prints an error and exits with the usage-error code.
 die() { echo "chaperone: $*" >&2; exit 2; }
 
+# Prints $1 as an absolute path, relative to the caller's directory. The app
+# runs in another directory, so every path handed to it must be absolute.
 absolute() {
     case "$1" in
         /*) printf '%s\n' "$1" ;;
         *) printf '%s/%s\n' "$PWD" "$1" ;;
     esac
 }
+
+# --- 1. Options --------------------------------------------------------------
 
 wait_for_end=0
 clean_env=0
@@ -52,12 +84,13 @@ while [ $# -gt 0 ]; do
         --status) [ $# -ge 2 ] || die "--status needs a file"; status="$2"; shift ;;
         -h|--help) usage; exit 0 ;;
         --) shift; break ;;
-        /*) break ;;
+        /*) break ;;  # the script, given without a `--` before it
         *) usage >&2; die "unknown option or relative script: $1" ;;
     esac
     shift
 done
 
+# Whatever is left is the script and its arguments.
 [ $# -ge 1 ] || { usage >&2; die "no script given"; }
 script="$1"
 shift
@@ -70,6 +103,10 @@ esac
 cwd="$(absolute "$cwd")"
 [ -d "$cwd" ] || die "no such directory: $cwd"
 
+# --- 2. Log and status files -------------------------------------------------
+
+# The timestamp plus this shell's pid keeps two runs started in the same
+# second apart.
 tmp="${TMPDIR:-/tmp}"
 tmp="${tmp%/}"
 stamp="$(date +%Y%m%d-%H%M%S)-$$"
@@ -79,13 +116,20 @@ log="$(absolute "$log")"
 status="$(absolute "$status")"
 
 # An empty status file now, so --wait never reads a previous run's exit= line.
+# (The app truncates it again when it opens it.)
 : > "$status" || die "cannot write the status file $status"
 
-# Hand the environment over variable by variable, so the script gets it
-# whatever LaunchServices does with open's own environment. (On macOS 26.5,
-# open also passes its own environment to the app, so --clean-env runs open
-# under env -i with a minimal base: HOME, USER, LOGNAME, TMPDIR and the
-# default PATH.)
+# --- 3. The environment and the open call ------------------------------------
+
+# By default, hand every exported variable over explicitly, one `--env K=V`
+# each, so the script gets the caller's environment whatever LaunchServices
+# does with open's own. (On macOS 26.5, open also passes its own environment
+# to the app it launches.) Names that are not valid identifiers (e.g. bash's
+# exported functions) and `_` are skipped.
+#
+# With --clean-env, nothing is handed over, and open itself runs under
+# `env -i` with a minimal base (HOME, USER, LOGNAME, TMPDIR and the default
+# PATH), so the script sees only that plus LaunchServices' own variables.
 env_args=()
 launcher=()
 if [ "$clean_env" = 1 ]; then
@@ -103,13 +147,22 @@ fi
 echo "log=$log"
 echo "status=$status"
 
+# -n: a new instance every time, so runs can overlap.
+# -g: start in the background; the app is LSBackgroundOnly anyway.
+# Everything after --args reaches the app's argv unchanged.
 ${launcher[@]+"${launcher[@]}"} /usr/bin/open -n -g -a "$app" ${env_args[@]+"${env_args[@]}"} \
     --args --cwd "$cwd" --log "$log" --status "$status" -- "$script" "$@" \
     || { echo "chaperone: open failed" >&2; exit 125; }
 
+# Without --wait the run is the app's from here on: it does not depend on
+# this shell, and killing this shell never stops it.
 [ "$wait_for_end" = 1 ] || exit 0
 
-# Exits with the run's result if the status file has one.
+# --- 4. --wait: poll the status file -----------------------------------------
+
+# Exits with the run's result if the status file has one (an exit= or
+# signal= line, always the last line the app writes). A refusal's reason is
+# shown on stderr.
 finish_if_done() {
     local line
     line="$(grep -E '^(exit|signal)=[0-9]+$' "$status" 2>/dev/null | tail -n 1)"
@@ -124,7 +177,12 @@ finish_if_done() {
     esac
 }
 
-# The app's first launch after a rebuild can itself be scanned (about 40 s).
+# Two ways a run can end without a result line, both reported as 125:
+# - the app never writes app=<pid> (it never started). The limit is generous
+#   because a freshly built app's own first launch is scanned (40-50 s);
+# - the app=<pid> process is gone but no result was written (it crashed or
+#   was killed with SIGKILL). The result is re-read once before giving up,
+#   since the app writes it just before quitting.
 start_limit=300
 started="$(date +%s)"
 app_pid=""

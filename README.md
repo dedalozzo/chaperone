@@ -1,4 +1,10 @@
-# Chaperone
+<p align="center">
+  <img src="icon/Chaperone-1024.png" alt="Chaperone logo: a shield with a guiding star and a route leading to a terminal" width="200">
+</p>
+
+<h1 align="center">Chaperone</h1>
+
+<p align="center">Run a script as the responsible process of a tiny background app, so macOS Developer Tools exempts what it builds from the XProtect first-launch scan.</p>
 
 Chaperone is a tiny macOS app that runs one script as its *responsible process*. Add it to **System Settings > Privacy & Security > Developer Tools**, and every program the script builds and starts skips the XProtect first-launch scan. It has no window, no Dock icon and never shows a prompt.
 
@@ -181,6 +187,16 @@ make uninstall
 ```
 
 This removes `~/Applications/Chaperone.app` and `~/.local/bin/chaperone`. Then remove Chaperone from Developer Tools, and delete `~/.config/chaperone` if you no longer need the allowlist.
+
+## Repository layout
+
+| Path | What it is |
+|---|---|
+| `src/main.swift` | The app: argument parsing, allowlist checks, spawning the script, the status file. |
+| `chaperone` | The command-line shim: builds the `open` call, hands over the environment, implements `--wait`. |
+| `Info.plist` | Bundle metadata: bundle id `io.github.dedalozzo.chaperone`, `LSBackgroundOnly`, the icon. |
+| `Makefile` | `make`, `make install`, `make uninstall`, `make clean`. |
+| `icon/` | The app icon: `Chaperone.svg` (vector source), `Chaperone-1024.png`, `Chaperone.iconset/`, `Chaperone.icns` (bundled into the app), and `build-icon.sh` with its two Swift helpers to regenerate them (see `icon/README.md`). |
 
 ## License
 

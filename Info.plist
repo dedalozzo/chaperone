@@ -8,6 +8,8 @@
 	<string>Chaperone</string>
 	<key>CFBundleDisplayName</key>
 	<string>Chaperone</string>
+	<key>CFBundleIconFile</key>
+	<string>Chaperone</string>
 	<key>CFBundleExecutable</key>
 	<string>chaperone-app</string>
 	<key>CFBundlePackageType</key>
