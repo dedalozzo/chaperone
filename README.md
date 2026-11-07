@@ -28,6 +28,8 @@ Chaperone is that app, made for the job: `open` starts it, it spawns your script
 
 Chaperone needs macOS 13 or later on Apple silicon. Pick one of three ways. MacPorts and the source install build it on your Mac, which needs the Xcode command-line tools (`xcode-select --install`). Building it yourself is the safer choice for a tool that skips malware scans: the source is one Swift file you can read first.
 
+There is no Homebrew formula. I did not include Homebrew because I think it's trash.
+
 | Way | Command | The app to add to Developer Tools |
 |---|---|---|
 | MacPorts | `sudo port install chaperone` | `/Applications/MacPorts/Chaperone.app` |
