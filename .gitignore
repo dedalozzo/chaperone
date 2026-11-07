@@ -1,3 +1,5 @@
 /build/
 /dist/
 .DS_Store
+/packaging/macports/PortIndex
+/packaging/macports/PortIndex.quick

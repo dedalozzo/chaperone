@@ -1,0 +1,48 @@
+# -*- coding: utf-8; mode: tcl; tab-width: 4; indent-tabs-mode: nil; c-basic-offset: 4 -*- vim:fenc=utf-8:ft=tcl:et:sw=4:ts=4:sts=4
+
+PortSystem          1.0
+PortGroup           github 1.0
+
+github.setup        dedalozzo chaperone 1.0.0 v
+github.tarball_from archive
+revision            0
+
+categories          sysutils devel
+license             MIT
+maintainers         {@dedalozzo} openmaintainer
+platforms           {darwin >= 22}
+supported_archs     arm64
+installs_libs       no
+
+description         Run a script as the responsible process of a background app
+
+long_description    Chaperone is a tiny background-only macOS app that runs \
+                    one script as its responsible process. Listed under \
+                    System Settings > Privacy & Security > Developer Tools, \
+                    it exempts the programs the script builds and starts \
+                    from the XProtect first-launch scan. It runs only scripts \
+                    under prefixes you allowlist in ~/.config/chaperone/allow.
+
+checksums           rmd160  b3d58269d9e11e52d4d8353089f39f47b2d27c35 \
+                    sha256  83b239302af1a7fc0cf3b1935236bc0cc02db788440323550a6d88df937f1518 \
+                    size    4464805
+
+use_configure       no
+
+# The Makefile calls swiftc and codesign itself and installs with
+# `make install DESTDIR=...`. APP_PATH is written into the installed shim.
+destroot.args       PREFIX_APP=${applications_dir} \
+                    PREFIX_BIN=${prefix}/bin \
+                    APP_PATH=${applications_dir}/Chaperone.app
+
+notes "
+Add ${applications_dir}/Chaperone.app in System Settings > Privacy &\
+ Security > Developer Tools (press Shift-Cmd-G in the picker and type the\
+ path), and make sure its switch is on. Remove it and add it again after\
+ every upgrade: the app is signed ad hoc, so its identity changes with each\
+ build.
+
+Chaperone refuses every script until you list the allowed prefixes, one\
+ per line, in ~/.config/chaperone/allow. See\
+ https://github.com/dedalozzo/chaperone#the-allowlist
+"
