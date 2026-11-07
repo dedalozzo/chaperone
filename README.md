@@ -26,22 +26,13 @@ Chaperone is that app, made for the job: `open` starts it, it spawns your script
 
 ## Install
 
-Chaperone needs macOS 13 or later on Apple silicon. Pick one of four ways. The first two and the last build it on your Mac from source, which needs the Xcode command-line tools (`xcode-select --install`). Building it yourself is the safer choice for a tool that skips malware scans: the source is one Swift file you can read first.
+Chaperone needs macOS 13 or later on Apple silicon. Pick one of three ways. MacPorts and the source install build it on your Mac, which needs the Xcode command-line tools (`xcode-select --install`). Building it yourself is the safer choice for a tool that skips malware scans: the source is one Swift file you can read first.
 
 | Way | Command | The app to add to Developer Tools |
 |---|---|---|
-| Homebrew | `brew install dedalozzo/chaperone/chaperone` | `/opt/homebrew/opt/chaperone/Chaperone.app` |
 | MacPorts | `sudo port install chaperone` | `/Applications/MacPorts/Chaperone.app` |
 | Release zip | see below | `~/Applications/Chaperone.app` |
 | From source | `make install` | `~/Applications/Chaperone.app` |
-
-### Homebrew
-
-```sh
-brew install dedalozzo/chaperone/chaperone
-```
-
-The formula lives in the tap [dedalozzo/homebrew-chaperone](https://github.com/dedalozzo/homebrew-chaperone). It builds the app into the Homebrew prefix and links `chaperone` into Homebrew's `bin`.
 
 ### MacPorts
 
@@ -83,7 +74,7 @@ Then create the allowlist (below). Chaperone refuses everything until it exists.
 
 ### Ad-hoc signing: re-add after every rebuild
 
-There is no signing identity in v1: the app is signed ad hoc, so its identity is its code hash, which changes on every rebuild. **After every rebuild, upgrade or reinstall (`make install`, `brew upgrade`, `port upgrade`, a new release), remove Chaperone from Developer Tools and add it again.** Otherwise the old entry no longer matches and every launch is scanned again. Signing with a stable identity (a self-signed certificate, or a free Apple Development certificate) would remove this step.
+There is no signing identity in v1: the app is signed ad hoc, so its identity is its code hash, which changes on every rebuild. **After every rebuild, upgrade or reinstall (`make install`, `port upgrade`, a new release), remove Chaperone from Developer Tools and add it again.** Otherwise the old entry no longer matches and every launch is scanned again. Signing with a stable identity (a self-signed certificate, or a free Apple Development certificate) would remove this step.
 
 The bundle identifier is `io.github.dedalozzo.chaperone`. Don't change it.
 
@@ -234,7 +225,6 @@ chaperone --wait --log /tmp/probe.log -- /abs/allowed/probe.sh; cat /tmp/probe.l
 
 | Way | Command |
 |---|---|
-| Homebrew | `brew uninstall chaperone`, then `brew untap dedalozzo/chaperone` |
 | MacPorts | `sudo port uninstall chaperone` |
 | Release zip | `rm -rf ~/Applications/Chaperone.app ~/.local/bin/chaperone` |
 | From source | `make uninstall` (removes `~/Applications/Chaperone.app` and `~/.local/bin/chaperone`) |
@@ -250,7 +240,7 @@ Then remove Chaperone from Developer Tools, and delete `~/.config/chaperone` if 
 | `Info.plist` | Bundle metadata: bundle id `io.github.dedalozzo.chaperone`, `LSBackgroundOnly`, the icon. |
 | `Makefile` | `make`, `make install`, `make uninstall`, `make dist` (the release zip), `make clean`. |
 | `icon/` | The app icon: `Chaperone.svg` (vector source), `Chaperone-1024.png`, `Chaperone.iconset/`, `Chaperone.icns` (bundled into the app), and `build-icon.sh` with its two Swift helpers to regenerate them (see `icon/README.md`). |
-| `packaging/` | The MacPorts Portfile (`packaging/macports/`) and the release checklist (`packaging/README.md`). The Homebrew formula lives in the tap [dedalozzo/homebrew-chaperone](https://github.com/dedalozzo/homebrew-chaperone). |
+| `packaging/` | The MacPorts Portfile (`packaging/macports/`) and the release checklist (`packaging/README.md`). |
 
 ## License
 

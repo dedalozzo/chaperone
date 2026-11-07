@@ -34,7 +34,7 @@
 set -u
 
 # Where the app is installed. `make install` rewrites this line with the real
-# path: ~/Applications/Chaperone.app by default, the opt path under Homebrew,
+# path: ~/Applications/Chaperone.app by default,
 # /Applications/MacPorts/Chaperone.app under MacPorts.
 DEFAULT_APP="$HOME/Applications/Chaperone.app"
 

@@ -12,8 +12,7 @@
 #   PREFIX_APP  directory the app goes in        (default ~/Applications)
 #   PREFIX_BIN  directory the shim goes in       (default ~/.local/bin)
 #   APP_PATH    the app's final path, written into the installed shim
-#               (default $(PREFIX_APP)/Chaperone.app; Homebrew passes its
-#               version-independent opt path)
+#               (default $(PREFIX_APP)/Chaperone.app)
 #   DESTDIR     staging root prepended to every installed file (MacPorts)
 #
 # Ad-hoc signing means the app's identity is its code hash, which changes on
