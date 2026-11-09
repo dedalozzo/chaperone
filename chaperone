@@ -10,10 +10,12 @@
 # Developer Tools exempts all of them. See README.md for the full story.
 #
 # usage: chaperone [--wait] [--clean-env] [--cwd DIR] [--log FILE] [--status FILE] -- /abs/script [args...]
+#        chaperone --version | --help
 #
 # What it does, in order:
 #   1. parses the options and checks the script path is absolute;
-#   2. picks default log and status paths in $TMPDIR, and empties the status file;
+#   2. puts the log and status files, unless given, in a new private folder
+#      in $TMPDIR, and empties the status file;
 #   3. builds `open -n -g -a Chaperone.app --env K=V ... --args <app options> -- script args`
 #      and runs it (the app does the allowlist check, not the shim);
 #   4. prints log=<path> and status=<path>, and returns at once, or with
@@ -43,6 +45,7 @@ app="${CHAPERONE_APP:-$DEFAULT_APP}"
 usage() {
     cat <<'EOF'
 usage: chaperone [--wait] [--clean-env] [--cwd DIR] [--log FILE] [--status FILE] -- /abs/script [args...]
+       chaperone --version | --help
 
   --wait        block until the script ends, then exit with its exit code
                 (128+N if a signal N ended it, 126 if Chaperone refused it,
@@ -50,9 +53,10 @@ usage: chaperone [--wait] [--clean-env] [--cwd DIR] [--log FILE] [--status FILE]
   --clean-env   do not pass this shell's environment to the script
   --cwd DIR     the script's working directory (default: $PWD)
   --log FILE    append the script's stdout and stderr here
-                (default: $TMPDIR/chaperone-<timestamp>.log)
+                (default: run.log in a new private folder in $TMPDIR)
   --status FILE app=, pid=, then exit= or signal= lines
-                (default: $TMPDIR/chaperone-<timestamp>.status)
+                (default: run.status in that folder)
+  --version     print the version of the app this shim runs
 
 The script must lie under a prefix listed in ~/.config/chaperone/allow.
 Prints log=<path> and status=<path> on stdout.
@@ -62,6 +66,14 @@ EOF
 
 # Prints an error and exits with the usage-error code.
 die() { echo "chaperone: $*" >&2; exit 2; }
+
+# Prints the version of the app the shim would run, and the app's path.
+version() {
+    local v
+    v="$(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' "$app/Contents/Info.plist" 2>/dev/null)" \
+        || die "no Chaperone.app at $app (install Chaperone, or set CHAPERONE_APP)"
+    echo "chaperone $v ($app)"
+}
 
 # Prints $1 as an absolute path, relative to the caller's directory. The app
 # runs in another directory, so every path handed to it must be absolute.
@@ -88,6 +100,7 @@ while [ $# -gt 0 ]; do
         --log) [ $# -ge 2 ] || die "--log needs a file"; log="$2"; shift ;;
         --status) [ $# -ge 2 ] || die "--status needs a file"; status="$2"; shift ;;
         -h|--help) usage; exit 0 ;;
+        --version) version; exit 0 ;;
         --) shift; break ;;
         /*) break ;;  # the script, given without a `--` before it
         *) usage >&2; die "unknown option or relative script: $1" ;;
@@ -110,18 +123,24 @@ cwd="$(absolute "$cwd")"
 
 # --- 2. Log and status files -------------------------------------------------
 
-# The timestamp plus this shell's pid keeps two runs started in the same
-# second apart.
-tmp="${TMPDIR:-/tmp}"
-tmp="${tmp%/}"
-stamp="$(date +%Y%m%d-%H%M%S)-$$"
-[ -n "$log" ] || log="$tmp/chaperone-$stamp.log"
-[ -n "$status" ] || status="$tmp/chaperone-$stamp.status"
+# Files not given go in a new folder that only you can enter (mktemp -d
+# makes it with mode 0700 and a random name), so nobody else can read the
+# log or put a symlink where Chaperone will write. The app also refuses a
+# symlink at either path, and creates both files with mode 0600.
+if [ -z "$log" ] || [ -z "$status" ]; then
+    tmp="${TMPDIR:-/tmp}"
+    run_dir="$(mktemp -d "${tmp%/}/chaperone-$(date +%Y%m%d-%H%M%S).XXXXXX")" \
+        || die "cannot create a folder for the log and status files in $tmp"
+    [ -n "$log" ] || log="$run_dir/run.log"
+    [ -n "$status" ] || status="$run_dir/run.status"
+fi
 log="$(absolute "$log")"
 status="$(absolute "$status")"
 
 # An empty status file now, so --wait never reads a previous run's exit= line.
-# (The app truncates it again when it opens it.)
+# (The app truncates it again when it opens it.) A symlink is refused here,
+# as the app would refuse it, so `: >` never empties a file it points to.
+[ ! -L "$status" ] || die "the status file is a symbolic link: $status"
 : > "$status" || die "cannot write the status file $status"
 
 # --- 3. The environment and the open call ------------------------------------

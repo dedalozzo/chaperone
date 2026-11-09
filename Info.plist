@@ -17,13 +17,19 @@
 	<key>CFBundleInfoDictionaryVersion</key>
 	<string>6.0</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.0.0</string>
+	<string>1.0.1</string>
 	<key>CFBundleVersion</key>
-	<string>1</string>
+	<string>2</string>
 	<key>LSMinimumSystemVersion</key>
 	<string>13.0</string>
 	<key>LSBackgroundOnly</key>
 	<true/>
+	<key>NSDocumentsFolderUsageDescription</key>
+	<string>Chaperone runs scripts you keep in your Documents folder.</string>
+	<key>NSDesktopFolderUsageDescription</key>
+	<string>Chaperone runs scripts you keep on your Desktop.</string>
+	<key>NSDownloadsFolderUsageDescription</key>
+	<string>Chaperone runs scripts you keep in your Downloads folder.</string>
 	<key>NSHumanReadableCopyright</key>
 	<string>MIT License</string>
 </dict>
