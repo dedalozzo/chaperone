@@ -26,7 +26,7 @@ Chaperone is that app, made for the job: `open` starts it, it spawns your script
 
 ## Install
 
-Chaperone needs macOS 13 or later on Apple silicon. Pick one of three ways. MacPorts and the source install build it on your Mac, which needs the Xcode command-line tools (`xcode-select --install`). Building it yourself is the safer choice for a tool that skips malware scans: the source is one Swift file you can read first.
+Chaperone needs macOS 13 or later, on Apple silicon or Intel. Pick one of three ways. MacPorts and the source install build it on your Mac, which needs the Xcode command-line tools (`xcode-select --install`). Building it yourself is the safer choice for a tool that skips malware scans: the source is one Swift file you can read first.
 
 There is no Homebrew formula. I did not include Homebrew because I think it's trash.
 
@@ -46,18 +46,18 @@ Until the port is in the MacPorts tree, use the Portfile in `packaging/macports/
 
 ### Release zip
 
-Each [GitHub release](https://github.com/dedalozzo/chaperone/releases) has a ready-built `Chaperone-<version>-arm64.zip`. The app in it is signed only ad hoc, not by an Apple developer certificate, so macOS quarantines the download and refuses to open it. Clear the quarantine flag yourself, and only if you trust the build:
+Each [GitHub release](https://github.com/dedalozzo/chaperone/releases) has a ready-built `Chaperone-<version>-universal.zip`, for Apple silicon and Intel Macs. The app in it is signed only ad hoc, not by an Apple developer certificate, so macOS quarantines the download and refuses to open it. Clear the quarantine flag yourself, and only if you trust the build:
 
 ```sh
 cd ~/Downloads
-ditto -x -k Chaperone-1.0.0-arm64.zip .
-xattr -dr com.apple.quarantine Chaperone-1.0.0
+ditto -x -k Chaperone-1.0.1-universal.zip .
+xattr -dr com.apple.quarantine Chaperone-1.0.1
 mkdir -p ~/Applications ~/.local/bin
-ditto Chaperone-1.0.0/Chaperone.app ~/Applications/Chaperone.app
-install -m 755 Chaperone-1.0.0/chaperone ~/.local/bin/chaperone
+ditto Chaperone-1.0.1/Chaperone.app ~/Applications/Chaperone.app
+install -m 755 Chaperone-1.0.1/chaperone ~/.local/bin/chaperone
 ```
 
-The release page lists the zip's SHA-256. Check it with `shasum -a 256 Chaperone-1.0.0-arm64.zip` before installing.
+The release page lists the zip's SHA-256. Check it with `shasum -a 256 Chaperone-1.0.1-universal.zip` before installing.
 
 ### From source
 
@@ -65,7 +65,9 @@ The release page lists the zip's SHA-256. Check it with `shasum -a 256 Chaperone
 make install
 ```
 
-This builds `build/Chaperone.app` (ad-hoc signed) and copies it to `~/Applications/Chaperone.app`, and the shim to `~/.local/bin/chaperone`. No sudo. `PREFIX_APP`, `PREFIX_BIN`, `APP_PATH` and `DESTDIR` change where things go (see the `Makefile`).
+This builds `build/Chaperone.app` for your Mac's architecture (ad-hoc signed, with the Hardened Runtime) and copies it to `~/Applications/Chaperone.app`, and the shim to `~/.local/bin/chaperone`. No sudo. `PREFIX_APP`, `PREFIX_BIN`, `APP_PATH` and `DESTDIR` change where things go, and `ARCH="arm64 x86_64"` builds a universal app (see the `Makefile`).
+
+`make test` runs the test suite first if you want to see it pass on your Mac (see [Tests](#tests)).
 
 ### Then, by hand, once
 
@@ -76,7 +78,7 @@ Then create the allowlist (below). Chaperone refuses everything until it exists.
 
 ### Ad-hoc signing: re-add after every rebuild
 
-There is no signing identity in v1: the app is signed ad hoc, so its identity is its code hash, which changes on every rebuild. **After every rebuild, upgrade or reinstall (`make install`, `port upgrade`, a new release), remove Chaperone from Developer Tools and add it again.** Otherwise the old entry no longer matches and every launch is scanned again. Signing with a stable identity (a self-signed certificate, or a free Apple Development certificate) would remove this step.
+The app has no signing identity: it is signed ad hoc, so its identity is its code hash. The hash is the same for every build of the same source with the same Xcode, and changes when either changes. **After every upgrade (`port upgrade`, a new release) or a rebuild with a new Xcode, remove Chaperone from Developer Tools and add it again.** Otherwise the old entry no longer matches and every launch is scanned again. Signing with a stable identity (a self-signed certificate, or a free Apple Development certificate) would remove this step.
 
 The bundle identifier is `io.github.dedalozzo.chaperone`. Don't change it.
 
@@ -86,6 +88,7 @@ The first launch of a freshly built Chaperone.app is itself scanned (about 40–
 
 ```sh
 chaperone [--wait] [--clean-env] [--cwd DIR] [--log FILE] [--status FILE] -- /abs/script [args...]
+chaperone --version | --help
 ```
 
 | Option | Meaning |
@@ -93,10 +96,13 @@ chaperone [--wait] [--clean-env] [--cwd DIR] [--log FILE] [--status FILE] -- /ab
 | `--wait` | Block until the script ends, then exit with its exit code: 128+N if signal N ended it, 126 if Chaperone refused the script, 125 if Chaperone itself failed. |
 | `--clean-env` | Don't pass the caller's environment: the script gets LaunchServices' base environment plus `HOME`, `USER`, `LOGNAME`, `TMPDIR` and `PATH=/usr/bin:/bin:/usr/sbin:/sbin`. By default, every exported variable is handed over with one `open --env K=V` each. (On macOS 26.5, `open` also passes its own environment to the app it launches, so `--clean-env` runs `open` under `env -i`.) |
 | `--cwd DIR` | The script's working directory. Default: the caller's `$PWD`. |
-| `--log FILE` | The script's stdout and stderr are appended here. Default: `$TMPDIR/chaperone-<timestamp>.log`. |
-| `--status FILE` | The status file. Default: `$TMPDIR/chaperone-<timestamp>.status`. |
+| `--log FILE` | The script's stdout and stderr are appended here. Default: `run.log` in a new private folder, `$TMPDIR/chaperone-<timestamp>.<random>/`, that only you can open. |
+| `--status FILE` | The status file. Default: `run.status` in the same folder. |
+| `--version` | Print the version of the app the shim runs, and its path. |
 
 The shim prints `log=<path>` and `status=<path>` on stdout. The script's stdin is `/dev/null`.
+
+Chaperone creates the log and the status file with mode 0600, and refuses either path if it is a symbolic link. If the status file can't be opened, nothing runs.
 
 The status file gets one line per event:
 
@@ -144,17 +150,45 @@ Chaperone runs a script only if all of these hold:
 
 - the script's real path (symlinks resolved) is a listed prefix or lies under one (`/a/b` allows `/a/b/x.sh`, not `/a/bc/x.sh`); a prefix of `/` is ignored;
 - the script is a regular, executable file owned by you, and neither group- nor world-writable;
-- the allowlist file itself is owned by you and neither group- nor world-writable.
+- the allowlist file itself is owned by you and neither group- nor world-writable;
+- every directory above the script, and above the allowlist, up to `/`, is owned by you or root, and not group- or world-writable unless it has the sticky bit (like `/tmp`). Otherwise someone else could rename a directory and put their own script, or allowlist, in its place;
+- macOS lets Chaperone read the script (see [Troubleshooting](#troubleshooting)).
 
 The allowlist is read from your home directory as the user database records it, not from `$HOME`, so a caller's environment can't move it.
 
-## Security note
+## Security model
 
-Listing an app under Developer Tools tells macOS not to malware-scan what that app runs. Chaperone extends that to **every script the allowlist permits, and everything those scripts start**. Keep the allowlist narrow:
+Listing an app under Developer Tools tells macOS not to malware-scan what that app runs. Chaperone extends that to **every script the allowlist permits, and everything those scripts start**. Here is what it defends, and what it doesn't.
 
-- List a directory of scripts you wrote and that only you can change, not a whole checkout, `~`, or a downloads folder.
-- Anything that can run as you can already call `chaperone`, so the allowlist is what stands between "runs as you" and "runs as you, unscanned".
-- The caller's environment passes through unchanged (including `PATH` and `DYLD_*`). An allowed script that runs tools found through its environment runs whatever that environment points at, unscanned. Gate scripts should set what they rely on, or be called with `--clean-env`.
+**What it protects against**
+
+- **Other users on the Mac.** They can't get their code run through Chaperone. Every file Chaperone trusts (the allowlist and the script) and every directory above them must be changeable only by you or root. So nobody else can edit them, or swap them for their own, not even between Chaperone's checks and the run.
+- **Mistakes.** A missing allowlist refuses everything. A prefix of `/` and relative lines are ignored. Symlinks are resolved before the prefix check, and prefixes match whole path components only.
+- **Tampering with the run's files.** By default the log and the status file live in a private folder. Both are created with mode 0600, and a symlink at either path is refused, so nobody can read your build log or point Chaperone's writes at one of your files.
+- **Loading code into Chaperone.** The app is signed with the Hardened Runtime, so dyld ignores `DYLD_*` variables, and the environment the shim hands over can't inject a library before the allowlist check. One side effect: scripts don't receive `DYLD_*` variables. Scripts run by macOS's own shells (`#!/bin/zsh`, `#!/bin/bash`, `#!/usr/bin/env …`) never did, because those shells drop them too.
+- **Moving the allowlist.** The allowlist is read from your home directory as the user database records it, not from `$HOME`.
+
+**What it does not protect against**
+
+- **Code already running as you.** It can edit the allowlist, or put a script in an allowed folder, and then call `chaperone`. The allowlist keeps other users and mistakes out; it is no barrier against malware already running as you. Listing Chaperone is the same trust as listing Terminal: anything that runs through it is unscanned.
+- **What your scripts run.** An allowed script runs everything it starts unscanned, including tools found through `PATH` and the rest of the caller's environment, which passes through unchanged. Gate scripts should set what they rely on, or be called with `--clean-env`.
+- **The build you install.** The release zip is signed ad hoc, not notarized: you trust whoever built it. MacPorts and `make install` build from source on your Mac.
+
+**Keep the allowlist narrow.** List a directory of scripts you wrote and that only you can change, not a whole checkout, `~`, or a downloads folder.
+
+## Troubleshooting
+
+**Refused: "macOS does not let Chaperone read the script".** macOS protects some folders (Documents, Desktop, Downloads, iCloud Drive, removable and network volumes) per app. Chaperone is the responsible process of its scripts, so it needs that access itself, whatever your terminal has. macOS can also withdraw it later. Allow Chaperone under **System Settings > Privacy & Security > Files & Folders** (or **Full Disk Access**), or keep the scripts somewhere else. A script that is allowed but then works in a protected folder (a checkout under `~/Documents`) needs the same access: there, the failure shows up inside the script, as "Operation not permitted" in the log.
+
+**Refused: "… is inside DIR, which is group- or world-writable".** Someone other than you could replace what is in `DIR`. Run `chmod go-w DIR`, or move the scripts.
+
+**Every launch is scanned again after an upgrade.** The new build has a new code hash: remove Chaperone from Developer Tools and add it again.
+
+**The reason for any refusal** is in the status file (`refused=` line) and in the unified log:
+
+```sh
+/usr/bin/log show --last 1h --predicate 'subsystem == "io.github.dedalozzo.chaperone"'
+```
 
 ## How to verify
 
@@ -223,6 +257,21 @@ chaperone --wait --log /tmp/probe.log -- /abs/allowed/probe.sh; cat /tmp/probe.l
 
    Match the `AUTHREQ_RESULT` to its query by `msgID`.
 
+## Tests
+
+```sh
+make test
+```
+
+`test/run.sh` runs a test build of the app directly, without `open`. That build is compiled with `-D CHAPERONE_TESTING`, which makes it read its allowlist from `$CHAPERONE_TEST_ALLOWLIST`. So the tests never touch your allowlist, and need neither Developer Tools nor a launch through LaunchServices. They cover:
+- the allowlist rules and every refusal;
+- arguments, stdin, the working directory and the log;
+- the status file, including mode 0600 and symlinks refused;
+- signal forwarding to the whole process group;
+- the shim's option handling.
+
+They also check that the real build is signed with the Hardened Runtime and has no trace of the test hook. The responsible process and the skipped scan can only be seen in a real launch: check those by hand, as described in [How to verify](#how-to-verify).
+
 ## Uninstall
 
 | Way | Command |
@@ -239,8 +288,9 @@ Then remove Chaperone from Developer Tools, and delete `~/.config/chaperone` if 
 |---|---|
 | `src/main.swift` | The app: argument parsing, allowlist checks, spawning the script, the status file. |
 | `chaperone` | The command-line shim: builds the `open` call, hands over the environment, implements `--wait`. |
-| `Info.plist` | Bundle metadata: bundle id `io.github.dedalozzo.chaperone`, `LSBackgroundOnly`, the icon. |
-| `Makefile` | `make`, `make install`, `make uninstall`, `make dist` (the release zip), `make clean`. |
+| `Info.plist` | Bundle metadata: bundle id `io.github.dedalozzo.chaperone`, `LSBackgroundOnly`, the icon, the text macOS shows when it asks for folder access. |
+| `Makefile` | `make`, `make test`, `make install`, `make uninstall`, `make dist` (the release zip), `make clean`. |
+| `test/run.sh` | The test suite (`make test`). |
 | `icon/` | The app icon: `Chaperone.svg` (vector source), `Chaperone-1024.png`, `Chaperone.iconset/`, `Chaperone.icns` (bundled into the app), and `build-icon.sh` with its two Swift helpers to regenerate them (see `icon/README.md`). |
 | `media/` | `linkedin-1200x627.png`, the social image for posts (1.91:1, shown uncropped in the LinkedIn feed), and `build-linkedin.swift`, which renders it (`swift media/build-linkedin.swift` from the repo root). |
 | `packaging/` | The MacPorts Portfile (`packaging/macports/`) and the release checklist (`packaging/README.md`). |

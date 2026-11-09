@@ -3,7 +3,7 @@
 PortSystem          1.0
 PortGroup           github 1.0
 
-github.setup        dedalozzo chaperone 1.0.0 v
+github.setup        dedalozzo chaperone 1.0.1 v
 github.tarball_from archive
 revision            0
 
@@ -11,7 +11,6 @@ categories          sysutils devel
 license             MIT
 maintainers         {@dedalozzo} openmaintainer
 platforms           {darwin >= 22}
-supported_archs     arm64
 installs_libs       no
 
 description         Run a script as the responsible process of a background app
@@ -29,18 +28,28 @@ checksums           rmd160  b3d58269d9e11e52d4d8353089f39f47b2d27c35 \
 
 use_configure       no
 
-# The Makefile calls swiftc and codesign itself and installs with
-# `make install DESTDIR=...`. APP_PATH is written into the installed shim.
-destroot.args       PREFIX_APP=${applications_dir} \
+# The Makefile calls swiftc and codesign itself, for the architecture in
+# ARCH, and installs with `make install DESTDIR=...`. APP_PATH is written
+# into the installed shim.
+build.args          ARCH=${configure.build_arch}
+
+destroot.args       ARCH=${configure.build_arch} \
+                    PREFIX_APP=${applications_dir} \
                     PREFIX_BIN=${prefix}/bin \
                     APP_PATH=${applications_dir}/Chaperone.app
+
+# `make test` runs test/run.sh against a separate test build of the app; it
+# never reads the user's allowlist.
+test.run            yes
+test.target         test
+test.args           ARCH=${configure.build_arch}
 
 notes "
 Add ${applications_dir}/Chaperone.app in System Settings > Privacy &\
  Security > Developer Tools (press Shift-Cmd-G in the picker and type the\
  path), and make sure its switch is on. Remove it and add it again after\
  every upgrade: the app is signed ad hoc, so its identity changes with each\
- build.
+ new version.
 
 Chaperone refuses every script until you list the allowed prefixes, one\
  per line, in ~/.config/chaperone/allow. See\
