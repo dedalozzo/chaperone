@@ -22,9 +22,9 @@ long_description    Chaperone is a tiny background-only macOS app that runs \
                     from the XProtect first-launch scan. It runs only scripts \
                     under prefixes you allowlist in ~/.config/chaperone/allow.
 
-checksums           rmd160  b3d58269d9e11e52d4d8353089f39f47b2d27c35 \
-                    sha256  83b239302af1a7fc0cf3b1935236bc0cc02db788440323550a6d88df937f1518 \
-                    size    4464805
+checksums           rmd160  b6d294e5978b992a66d5bf69715cc929bb2b13e7 \
+                    sha256  9a44f47b5d4d42ee98486df827e987f351195374a1f9036c3913c72b67258d68 \
+                    size    5324700
 
 use_configure       no
 
