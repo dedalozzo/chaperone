@@ -49,9 +49,9 @@ DESTDIR    ?=
 all: $(APP)
 
 # The bundle: Info.plist, the icon in Resources, the binary in MacOS. One
-# swiftc call per architecture, then lipo joins them into one binary. The
-# bundle is signed as a whole, after everything is in place, so the
-# signature seals Info.plist and the icon too.
+# swiftc call per architecture; with more than one, lipo joins them into
+# one universal binary. The bundle is signed as a whole, after everything
+# is in place, so the signature seals Info.plist and the icon too.
 #
 # --options runtime turns on the Hardened Runtime. Chaperone needs it: the
 # shim hands the caller's environment to the app, and without it a DYLD_*
@@ -66,7 +66,7 @@ $(APP): src/main.swift Info.plist icon/Chaperone.icns
 	for a in $(ARCH); do \
 	    swiftc -O -target $$a-apple-macos$(MACOS) -o build/arch/chaperone-app-$$a src/main.swift || exit 1; \
 	done
-	lipo -create build/arch/chaperone-app-* -output $(BIN)
+	$(if $(word 2,$(ARCH)),lipo -create build/arch/chaperone-app-* -output $(BIN),cp build/arch/chaperone-app-$(strip $(ARCH)) $(BIN))
 	codesign --force --sign - --options runtime --identifier $(BUNDLEID) $(APP)
 	touch $(APP)
 
@@ -92,7 +92,7 @@ install: all
 	sed 's|^DEFAULT_APP=.*|DEFAULT_APP="$(APP_PATH)"|' chaperone > build/chaperone
 	install -m 755 build/chaperone "$(DESTDIR)$(PREFIX_BIN)/chaperone"
 	@echo "Installed $(DESTDIR)$(PREFIX_APP)/Chaperone.app and $(DESTDIR)$(PREFIX_BIN)/chaperone."
-	@echo "Now add $(APP_PATH) in System Settings > Privacy & Security > Developer Tools (again after every rebuild)."
+	@echo "Now add $(APP_PATH) in System Settings > Privacy & Security > Developer Tools (again after every upgrade)."
 
 uninstall:
 	@test -n "$(PREFIX_APP)" && test -n "$(PREFIX_BIN)" || { echo "PREFIX_APP and PREFIX_BIN must be set" >&2; exit 1; }
